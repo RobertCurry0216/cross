@@ -22,7 +22,9 @@ func (m *Model) PopView() {
 // Puzzle view
 func SetPuzzle(m *Model, puzzle *puz.Puzzle) {
 	m.state.Puzzle = puzzle
+	// lazy way to ensure the initial cell isn't blank
 	SelectNextCell(m, 0, 1)
+	SelectNextCell(m, 0, -1)
 }
 
 func SelectNextCell(m *Model, yDir, xDir int) {
