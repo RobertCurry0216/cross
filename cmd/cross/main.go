@@ -53,7 +53,7 @@ func main() {
 
 	m := model.NewModel()
 
-	m.SetPuzzle(p)
+	model.SetPuzzle(&m, p)
 	m.PushView(&screen.PuzzleScreen{})
 
 	if _, err := tea.NewProgram(m).Run(); err != nil {
