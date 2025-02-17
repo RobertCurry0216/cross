@@ -2,12 +2,14 @@ package model
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/robertcurry0216/cross/common"
 	"github.com/robertcurry0216/cross/internal/screen"
 )
 
 type Model struct {
 	state common.State
+	debug string
 }
 
 // Constructor
@@ -24,12 +26,17 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) View() string {
+	var viewString string
 	if len(m.state.Views) > 0 {
 		view := m.state.Views[len(m.state.Views)-1]
-		return view.View(m.state)
-	} else {
-		return ""
+		viewString = view.View(m.state)
 	}
+
+	debug := lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Render(m.debug)
+
+	viewString = lipgloss.JoinVertical(lipgloss.Left, debug, viewString)
+
+	return viewString
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -65,4 +72,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// catch all return
 	return m, nil
+}
+
+// methods
+
+func (m *Model) PushView(view common.Viewable) {
+	view.Init(m.state)
+	m.state.Views = append(m.state.Views, view)
+}
+
+func (m *Model) PopView() {
+	if len(m.state.Views) > 0 {
+		m.state.Views = m.state.Views[:len(m.state.Views)-1]
+	}
 }

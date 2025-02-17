@@ -17,3 +17,8 @@ type PuzzleView struct {
 	Y      int
 	IsVert bool
 }
+
+type LayoutBox struct {
+	W int
+	H int
+}

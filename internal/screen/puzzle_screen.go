@@ -44,10 +44,10 @@ const (
 	empty
 )
 
+type layoutType int
+
 const (
-	screenFullWidth = iota
-	screenHalfStack
-	screenFullStack
+	layoutCluesRight layoutType = iota
 )
 
 var boxRunes []string
@@ -105,52 +105,23 @@ func (s *PuzzleScreen) View(state common.State) string {
 		}
 	}
 
+	layout := calculateLayout(&state)
+
 	// Apply the style to the text
-	grid := renderPuzzle(s.puzzle, clue, cell)
+	grid := renderPuzzle(layout.puzzle, s.puzzle, clue, cell)
 	if lipgloss.Width(grid) < gridMinWidth {
 		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
 	}
 
-	// display mode
-	widthGrid := lipgloss.Width(grid)
-	var mode int
-	if widthGrid+clueMinWidth*2 <= state.Width {
-		mode = screenFullWidth
-	} else if clueMinWidth*2 <= state.Width {
-		mode = screenHalfStack
-	} else {
-		mode = screenFullStack
-	}
-
-	// clues
-	clueWidth := int((state.Width - lipgloss.Width(grid)) / 2)
-	if mode == screenHalfStack {
-		clueWidth = int((state.Width) / 2)
-	} else if mode == screenHalfStack {
-		clueWidth = state.Width
-	}
-
-	if clueWidth > clueMaxWidth {
-		clueWidth = clueMaxWidth
-	} else if clueWidth < clueMinWidth {
-		clueWidth = clueMinWidth
-	}
-
 	// combine
-	hClues := renderClues(s.puzzle.HorizClues, "Horizontal", clueWidth, clue)
-	vClues := renderClues(s.puzzle.VertClues, "Vertical", clueWidth, clue)
+	hClues := renderClues(layout.acrossClues, s.puzzle.HorizClues, "Across", clue)
+	vClues := renderClues(layout.downClues, s.puzzle.VertClues, "Down", clue)
 
-	var screen string
-	if mode == screenFullWidth {
-		screen = lipgloss.JoinHorizontal(lipgloss.Top, grid, hClues, vClues)
-	} else if mode == screenHalfStack {
-		screen = lipgloss.JoinVertical(lipgloss.Center,
-			grid,
-			lipgloss.JoinHorizontal(lipgloss.Top, hClues, vClues),
-		)
-	} else {
-		screen = lipgloss.JoinVertical(lipgloss.Center, grid, hClues, vClues)
-	}
+	rightColumn := lipgloss.JoinVertical(lipgloss.Left, hClues, vClues)
+	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
+
+	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
+
 	// Print the styled box
 	return screen
 }
@@ -159,15 +130,75 @@ func (s *PuzzleScreen) View(state common.State) string {
 
 func titledBorder(title string) lipgloss.Style {
 	border := lipgloss.RoundedBorder()
-	border.Top = fmt.Sprintf("─%s%s", title, strings.Repeat("─", 250))
+	border.Top = fmt.Sprintf("─%s%s", title, strings.Repeat("─", 500))
 	return styleBorder.Border(border)
+}
+
+type puzzleViewLayout struct {
+	layout      layoutType
+	puzzle      common.LayoutBox
+	downClues   common.LayoutBox
+	acrossClues common.LayoutBox
+	title       common.LayoutBox
+	status      common.LayoutBox
+}
+
+func calculateLayout(state *common.State) puzzleViewLayout {
+	layout := puzzleViewLayout{}
+
+	layout.layout = layoutCluesRight
+
+	// column widths
+	leftColMin := state.Puzzle.Width * 4
+	leftCol := int(float64(state.Width) * 0.6)
+	if leftCol < leftColMin {
+		leftCol = leftColMin
+	}
+	rightCol := state.Width - leftCol
+	if rightCol < 20 {
+		rightCol = 20
+	}
+
+	// heights
+	statusHeight := 1
+	titleHeight := 0
+	acrossHeight := int(float64(state.Height-statusHeight) / 2)
+	downHeight := state.Height - acrossHeight - statusHeight
+
+	// boxes
+	layout.puzzle = common.LayoutBox{
+		W: leftCol,
+		H: state.Height - statusHeight - titleHeight,
+	}
+
+	layout.title = common.LayoutBox{
+		W: leftCol,
+		H: titleHeight,
+	}
+
+	layout.status = common.LayoutBox{
+		W: state.Width,
+		H: statusHeight,
+	}
+
+	layout.acrossClues = common.LayoutBox{
+		W: rightCol,
+		H: acrossHeight,
+	}
+
+	layout.downClues = common.LayoutBox{
+		W: rightCol,
+		H: downHeight,
+	}
+
+	return layout
 }
 
 // Drawing functions
 
-func renderPuzzle(puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
+func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
 	buffer := NewBuffer(puz.Width*2+1, puz.Height*2+1)
-	style := lipgloss.NewStyle().Padding(1)
+	style := titledBorder("Puzzle").Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
 
 	insertCorners(puz, buffer)
 	insertEdges(puz, buffer)
@@ -256,7 +287,7 @@ func insertEdges(puz *puzzle.Puzzle, buffer *Buffer) {
 }
 
 func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) {
-	style := styleCellText.Inherit(styleCellPadding)
+	styleEmpty := styleCellText.Inherit(styleCellPadding)
 	styleHighlight := styleHighlightClue.Inherit(styleCellPadding).Inherit(styleCellText)
 	styleHighlightCell := styleHighlightCell.Inherit(styleCellPadding).Inherit(styleCellText)
 
@@ -276,7 +307,11 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 				} else if selectedClue == cell.ClueHoriz || selectedClue == cell.ClueVert {
 					buffer.Set(y*2+1, x*2+1, styleHighlight.Render(text))
 				} else {
-					buffer.Set(y*2+1, x*2+1, style.Render(text))
+					if cell.IsEmpty() {
+						buffer.Set(y*2+1, x*2+1, styleEmpty.Render(text))
+					} else {
+						buffer.Set(y*2+1, x*2+1, styleCellPadding.Render(text))
+					}
 				}
 			} else {
 				buffer.Set(y*2+1, x*2+1, strings.Repeat(boxRunes[blank], cellWidth))
@@ -285,12 +320,12 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 	}
 }
 
-func renderClues(clues []*puzzle.Clue, title string, width int, selectedClue *puzzle.Clue) string {
+func renderClues(box common.LayoutBox, clues []*puzzle.Clue, title string, selectedClue *puzzle.Clue) string {
 	var out string
 
 	for i, clue := range clues {
 		num := fmt.Sprintf("%2d. ", clue.Number)
-		clueText := common.WrapString(clue.Text, uint(width-4-lipgloss.Width(num)))
+		clueText := common.WrapString(clue.Text, uint(box.W-4-lipgloss.Width(num)))
 		clueText = fmt.Sprintf("%s (%d)", clueText, len(clue.Cells))
 		if selectedClue == clue {
 			clueText = styleHighlightClue.Render(clueText)
@@ -307,7 +342,7 @@ func renderClues(clues []*puzzle.Clue, title string, width int, selectedClue *pu
 
 	border := lipgloss.RoundedBorder()
 	border.Top = fmt.Sprintf("─%s%s", title, strings.Repeat("─", 100))
-	style := lipgloss.NewStyle().Inherit(styleBorder).Border(border)
+	style := styleBorder.Border(border).Height(box.H - 2).Width(box.W - 2)
 
 	out = style.Render(out)
 
