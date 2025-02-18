@@ -76,7 +76,7 @@ func init() {
 	colorHighlightFG = lipgloss.AdaptiveColor{Light: "15", Dark: "0"}
 
 	// styles
-	styleBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 2)
+	styleBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 	styleGridLine = lipgloss.NewStyle().Foreground(colorGridLine)
 	styleTitle = lipgloss.NewStyle().Underline(true).Bold(true)
 	styleCellText = lipgloss.NewStyle().Faint(true)
@@ -107,17 +107,14 @@ func (s *PuzzleScreen) View(state common.State) string {
 
 	layout := calculateLayout(&state)
 
-	// Apply the style to the text
+	// render boxes
 	grid := renderPuzzle(layout.puzzle, s.puzzle, clue, cell)
 	if lipgloss.Width(grid) < gridMinWidth {
 		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
 	}
 
 	// combine
-	hClues := renderClues(layout.acrossClues, s.puzzle.HorizClues, "Across", clue)
-	vClues := renderClues(layout.downClues, s.puzzle.VertClues, "Down", clue)
-
-	rightColumn := lipgloss.JoinVertical(lipgloss.Left, hClues, vClues)
+	rightColumn := renderClues(layout.clues, s.puzzle, clue, puzState.IsVert)
 	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
 
 	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
@@ -128,19 +125,18 @@ func (s *PuzzleScreen) View(state common.State) string {
 
 // Helpers
 
-func titledBorder(title string) lipgloss.Style {
+func titledBorder(title string) lipgloss.Border {
 	border := lipgloss.RoundedBorder()
 	border.Top = fmt.Sprintf("─%s%s", title, strings.Repeat("─", 500))
-	return styleBorder.Border(border)
+	return border
 }
 
 type puzzleViewLayout struct {
-	layout      layoutType
-	puzzle      common.LayoutBox
-	downClues   common.LayoutBox
-	acrossClues common.LayoutBox
-	title       common.LayoutBox
-	status      common.LayoutBox
+	layout layoutType
+	puzzle common.LayoutBox
+	clues  common.LayoutBox
+	title  common.LayoutBox
+	status common.LayoutBox
 }
 
 func calculateLayout(state *common.State) puzzleViewLayout {
@@ -162,34 +158,24 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 	// heights
 	statusHeight := 1
 	titleHeight := 0
-	acrossHeight := int(float64(state.Height-statusHeight) / 2)
-	downHeight := state.Height - acrossHeight - statusHeight
+	cluesHeight := state.Height - statusHeight
 
 	// boxes
-	layout.puzzle = common.LayoutBox{
-		W: leftCol,
-		H: state.Height - statusHeight - titleHeight,
-	}
+	layout.puzzle = common.NewLayoutBox()
+	layout.puzzle.W = leftCol
+	layout.puzzle.H = state.Height - statusHeight - titleHeight
 
-	layout.title = common.LayoutBox{
-		W: leftCol,
-		H: titleHeight,
-	}
+	layout.title = common.NewLayoutBox()
+	layout.title.W = leftCol
+	layout.title.H = titleHeight
 
-	layout.status = common.LayoutBox{
-		W: state.Width,
-		H: statusHeight,
-	}
+	layout.status = common.NewLayoutBox()
+	layout.status.W = state.Width
+	layout.status.H = statusHeight
 
-	layout.acrossClues = common.LayoutBox{
-		W: rightCol,
-		H: acrossHeight,
-	}
-
-	layout.downClues = common.LayoutBox{
-		W: rightCol,
-		H: downHeight,
-	}
+	layout.clues = common.NewLayoutBox()
+	layout.clues.W = rightCol
+	layout.clues.H = cluesHeight
 
 	return layout
 }
@@ -198,7 +184,7 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 
 func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
 	buffer := NewBuffer(puz.Width*2+1, puz.Height*2+1)
-	style := titledBorder("Puzzle").Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
+	style := lipgloss.NewStyle().Border(titledBorder("Puzzle")).Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
 
 	insertCorners(puz, buffer)
 	insertEdges(puz, buffer)
@@ -320,12 +306,39 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 	}
 }
 
-func renderClues(box common.LayoutBox, clues []*puzzle.Clue, title string, selectedClue *puzzle.Clue) string {
+func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue, downSelected bool) string {
+	var acrossBoxed, downBoxed string
+	boxHeight := int(box.H/2) - 2
+	boxRemainder := box.H % 2
+
+	acrossText := renderClueSet(box.W, puzzle.HorizClues, selectedClue)
+	downText := renderClueSet(box.W, puzzle.VertClues, selectedClue)
+
+	acrossHeight := boxHeight + boxRemainder
+	downHeight := boxHeight
+
+	if acrossHeight < strings.Count(acrossText, "\n") || downHeight < strings.Count(downText, "\n") {
+		if downSelected {
+			acrossText = truncateLines(acrossText, (boxHeight*2)-strings.Count(downText, "\n")-boxRemainder)
+			acrossHeight = 0
+		} else {
+			downText = truncateLines(downText, (boxHeight*2)-strings.Count(acrossText, "\n")-boxRemainder)
+			downHeight = 0
+		}
+	}
+
+	acrossBoxed = styleBorder.Border(titledBorder("Across")).Height(acrossHeight).Width(box.W - 2).Render(acrossText)
+	downBoxed = styleBorder.Border(titledBorder("Down")).Height(downHeight).Width(box.W - 2).Render(downText)
+
+	return lipgloss.JoinVertical(lipgloss.Left, acrossBoxed, downBoxed)
+}
+
+func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) string {
 	var out string
 
 	for i, clue := range clues {
 		num := fmt.Sprintf("%2d. ", clue.Number)
-		clueText := common.WrapString(clue.Text, uint(box.W-4-lipgloss.Width(num)))
+		clueText := common.WrapString(clue.Text, uint(W-4-lipgloss.Width(num)))
 		clueText = fmt.Sprintf("%s (%d)", clueText, len(clue.Cells))
 		if selectedClue == clue {
 			clueText = styleHighlightClue.Render(clueText)
@@ -340,11 +353,19 @@ func renderClues(box common.LayoutBox, clues []*puzzle.Clue, title string, selec
 		}
 	}
 
-	border := lipgloss.RoundedBorder()
-	border.Top = fmt.Sprintf("─%s%s", title, strings.Repeat("─", 100))
-	style := styleBorder.Border(border).Height(box.H - 2).Width(box.W - 2)
-
-	out = style.Render(out)
-
 	return out
+}
+
+func truncateLines(str string, lineCount int) string {
+	if lineCount < 0 {
+		lineCount = 0
+	}
+
+	lines := strings.Split(str, "\n")
+
+	if len(lines) < lineCount {
+		return str
+	}
+
+	return strings.Join(lines[:lineCount+1], "\n")
 }

@@ -22,3 +22,7 @@ type LayoutBox struct {
 	W int
 	H int
 }
+
+func NewLayoutBox() LayoutBox {
+	return LayoutBox{}
+}

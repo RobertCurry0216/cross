@@ -12,7 +12,6 @@ import (
 func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		m.debug = msg.String()
 		switch msg.String() {
 		case "up":
 			SelectNextCell(&m, -1, 0)

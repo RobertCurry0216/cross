@@ -2,7 +2,6 @@ package model
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/robertcurry0216/cross/common"
 	"github.com/robertcurry0216/cross/internal/screen"
 )
@@ -31,11 +30,6 @@ func (m Model) View() string {
 		view := m.state.Views[len(m.state.Views)-1]
 		viewString = view.View(m.state)
 	}
-
-	debug := lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Render(m.debug)
-
-	viewString = lipgloss.JoinVertical(lipgloss.Left, debug, viewString)
-
 	return viewString
 }
 
