@@ -14,7 +14,7 @@ type Puzzle struct {
 	Clues      []*Clue
 	VertClues  []*Clue
 	HorizClues []*Clue
-	Grid       [][]Cell
+	Grid       [][]*Cell
 
 	Title     string
 	Author    string
@@ -50,5 +50,5 @@ func (puz *Puzzle) CellAt(x, y int) *Cell {
 	if x < 0 || y < 0 || x >= puz.Width || y >= puz.Height {
 		return nil
 	}
-	return &puz.Grid[y][x]
+	return puz.Grid[y][x]
 }

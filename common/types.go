@@ -4,6 +4,7 @@ import "github.com/robertcurry0216/cross/internal/puzzle"
 
 // the State for the cli
 type State struct {
+	Debug  string
 	Puzzle *puzzle.Puzzle
 	Views  []Viewable
 	Width  int

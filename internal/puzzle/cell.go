@@ -1,15 +1,17 @@
 package puzzle
 
 type Cell struct {
-	ClueVert  *Clue
-	ClueHoriz *Clue
-	Solution  byte
-	Input     byte
-	Selected  bool
+	ClueVert    *Clue
+	ClueHoriz   *Clue
+	Solution    byte
+	Input       byte
+	Selected    bool
+	ShowChecked bool
+	IsCircled   bool
 }
 
-func NewCell() Cell {
-	return Cell{}
+func NewCell() *Cell {
+	return &Cell{}
 }
 
 func (cell *Cell) IsBlank() bool {
@@ -28,6 +30,12 @@ func (cell *Cell) Number() int {
 	}
 	return -1
 }
+
+func (cell *Cell) IsCorrect() bool {
+	return cell.Input == cell.Solution
+}
+
+// helpers
 
 func IsCellBlankOrNil(cell *Cell) bool {
 	return cell == nil || cell.IsBlank()

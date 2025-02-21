@@ -1,7 +1,6 @@
 package puzzle
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,22 +30,11 @@ func NewBuilderFromFile(path string) (iBuilder, error) {
 	return nil, fmt.Errorf("failed to parse file with ext: %v", ext)
 }
 
-func readString(data []byte) (string, int) {
-	nullIndex := bytes.IndexByte(data, 0)
-	if nullIndex == -1 {
-		return "", -1
-	}
-	str := string(data[:nullIndex])
-	offset := nullIndex + 1 // Move past the null terminator
-
-	return str, offset
-}
-
 func InitPuzzle(puz *Puzzle) error {
-	puz.Grid = make([][]Cell, puz.Height)
+	puz.Grid = make([][]*Cell, puz.Height)
 
 	for y := range int(puz.Height) {
-		puz.Grid[y] = make([]Cell, puz.Width)
+		puz.Grid[y] = make([]*Cell, puz.Width)
 		for x := range int(puz.Width) {
 			puz.Grid[y][x] = NewCell()
 			cell := puz.CellAt(x, y)

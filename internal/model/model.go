@@ -8,7 +8,6 @@ import (
 
 type Model struct {
 	state common.State
-	debug string
 }
 
 // Constructor

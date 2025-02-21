@@ -12,6 +12,7 @@ import (
 func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		m.state.Debug = msg.String()
 		switch msg.String() {
 		case "up":
 			SelectNextCell(&m, -1, 0)
@@ -41,6 +42,48 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				cell.Input = ' '
+			}
+		case "ctrl+l":
+			// check letter
+			if cell, ok := GetSelectedCell(&m); ok {
+				cell.ShowChecked = true
+			}
+		case "ctrl+w":
+			// check word
+			if cell, ok := GetSelectedCell(&m); ok {
+				var clue *puzzle.Clue
+				if m.state.PuzzleView.IsVert {
+					clue = cell.ClueVert
+				} else {
+					clue = cell.ClueHoriz
+				}
+
+				for _, c := range clue.Cells {
+					c.ShowChecked = true
+				}
+			}
+		case "ctrl+a":
+			// check puzzle
+			for _, row := range m.state.Puzzle.Grid {
+				for _, cell := range row {
+					if !cell.IsBlank() {
+						cell.ShowChecked = true
+					}
+				}
+			}
+		case "ctrl+r":
+			// reveal word
+			if cell, ok := GetSelectedCell(&m); ok {
+				var clue *puzzle.Clue
+				if m.state.PuzzleView.IsVert {
+					clue = cell.ClueVert
+				} else {
+					clue = cell.ClueHoriz
+				}
+
+				for _, c := range clue.Cells {
+					c.Input = c.Solution
+				}
 			}
 		default:
 			pattern := `^[a-zA-Z]$`
@@ -93,6 +136,7 @@ func SelectNextCell(m *Model, yDir, xDir int) {
 func SetLetter(m *Model, letter string) {
 	if cell, ok := GetSelectedCell(m); ok && len(letter) == 1 {
 		cell.Input = strings.ToUpper(letter)[0]
+		cell.ShowChecked = false
 	}
 }
 

@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	boxString        = "┏┓┗┛━┃┣┫┳┻╋ *"
-	blankCell        = ' '
-	emptyCell        = '░'
-	cellWidth    int = 3
-	gridMinWidth int = 60
-	clueMaxWidth int = 80
-	clueMinWidth int = 50
+	cellNumberString     = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089"
+	boxString            = "┏┓┗┛━┃┣┫┳┻╋ .*"
+	blankCell            = ' '
+	emptyCell            = '░'
+	cellWidth        int = 3
+	gridMinWidth     int = 60
+	clueMaxWidth     int = 80
+	clueMinWidth     int = 50
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 	colorHighlightFG,
 	colorError,
 	colorCorrect,
+	colorStatusBar,
 	colorGridLine lipgloss.AdaptiveColor
 )
 
@@ -42,6 +44,7 @@ const (
 	cross
 	blank
 	empty
+	emptySelected
 )
 
 type layoutType int
@@ -50,6 +53,7 @@ const (
 	layoutCluesRight layoutType = iota
 )
 
+var cellNumberRunes []string
 var boxRunes []string
 var (
 	styleTitle,
@@ -68,10 +72,16 @@ func init() {
 		boxRunes = append(boxRunes, string(r))
 	}
 
+	cellNumberRunes = make([]string, 0, len(cellNumberString))
+	for _, r := range cellNumberString {
+		cellNumberRunes = append(cellNumberRunes, string(r))
+	}
+
 	// colors
-	colorError = lipgloss.AdaptiveColor{Light: "13", Dark: "13"}
-	colorCorrect = lipgloss.AdaptiveColor{Light: "10", Dark: "10"}
+	colorError = lipgloss.AdaptiveColor{Light: "9", Dark: "1"}
+	colorCorrect = lipgloss.AdaptiveColor{Light: "2", Dark: "10"}
 	colorGridLine = lipgloss.AdaptiveColor{Light: "241", Dark: "7"}
+	colorStatusBar = lipgloss.AdaptiveColor{Light: "4", Dark: "12"}
 	colorHighlightBG = lipgloss.AdaptiveColor{Light: "8", Dark: "250"}
 	colorHighlightFG = lipgloss.AdaptiveColor{Light: "15", Dark: "0"}
 
@@ -94,6 +104,11 @@ func (s *PuzzleScreen) Init(state common.State) {
 }
 
 func (s *PuzzleScreen) View(state common.State) string {
+	// puz := state.Puzzle
+	// txt := lipgloss.JoinVertical(lipgloss.Left, puz.Title, puz.Author, puz.Copyright, puz.Notes)
+	// return txt
+
+	// return state.Debug
 	puzState := state.PuzzleView
 	cell := s.puzzle.CellAt(puzState.X, puzState.Y)
 	var clue *puzzle.Clue
@@ -113,17 +128,35 @@ func (s *PuzzleScreen) View(state common.State) string {
 		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
 	}
 
+	// status bar
+	status := renderStatusBar(layout.status)
+
 	// combine
 	rightColumn := renderClues(layout.clues, s.puzzle, clue, puzState.IsVert)
 	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
 
 	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
+	screen = lipgloss.JoinVertical(lipgloss.Center, screen, status)
 
 	// Print the styled box
 	return screen
 }
 
 // Helpers
+
+func truncateLines(str string, lineCount int) string {
+	if lineCount < 0 {
+		lineCount = 0
+	}
+
+	lines := strings.Split(str, "\n")
+
+	if len(lines) < lineCount {
+		return str
+	}
+
+	return strings.Join(lines[:lineCount+1], "\n")
+}
 
 func titledBorder(title string) lipgloss.Border {
 	border := lipgloss.RoundedBorder()
@@ -181,10 +214,15 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 }
 
 // Drawing functions
-
+//
+// |  __ \             | |       / ____|    (_)   | |
+// | |__) |   _ ________ | ___  | |  __ _ __ _  __| |
+// |  ___/ | | |_  /_  / |/ _ \ | | |_ | '__| |/ _` |
+// | |   | |_| |/ / / /| |  __/ | |__| | |  | | (_| |
+// |_|    \__,_/___/___|_|\___|  \_____|_|  |_|\__,_|
 func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
 	buffer := NewBuffer(puz.Width*2+1, puz.Height*2+1)
-	style := lipgloss.NewStyle().Border(titledBorder("Puzzle")).Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
+	style := lipgloss.NewStyle().Border(titledBorder(puz.Title)).Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
 
 	insertCorners(puz, buffer)
 	insertEdges(puz, buffer)
@@ -250,20 +288,33 @@ func insertCorners(puz *puzzle.Puzzle, buffer *Buffer) {
 }
 
 func insertEdges(puz *puzzle.Puzzle, buffer *Buffer) {
+	var cell *puzzle.Cell
 	var emptyC, emptyT, emptyL bool
 	for y := 0; y < puz.Height+1; y++ {
 		for x := 0; x < puz.Width+1; x++ {
-			emptyC = puzzle.IsCellBlankOrNil(puz.CellAt(x, y))
+			cell = puz.CellAt(x, y)
+			emptyC = puzzle.IsCellBlankOrNil(cell)
 			emptyT = puzzle.IsCellBlankOrNil(puz.CellAt(x, y-1))
 			emptyL = puzzle.IsCellBlankOrNil(puz.CellAt(x-1, y))
 
+			// vert lines
 			if !emptyC || !emptyL {
 				buffer.Set(y*2+1, x*2, styleGridLine.Render(boxRunes[vertLine]))
 			} else {
 				buffer.Set(y*2+1, x*2, boxRunes[blank])
 			}
 
-			if !emptyC || !emptyT {
+			// horiz lines
+			if !emptyC && cell.Number() > 0 {
+				runes := make([]string, cellWidth)
+				for i := range cellWidth {
+					runes[i] = boxRunes[horizLine]
+				}
+				for i, nr := range strconv.Itoa(cell.Number()) {
+					runes[i] = string(nr)
+				}
+				buffer.Set(y*2, x*2+1, styleGridLine.Render(strings.Join(runes, "")))
+			} else if !emptyC || !emptyT {
 				buffer.Set(y*2, x*2+1, styleGridLine.Render(strings.Repeat(boxRunes[horizLine], cellWidth)))
 			} else {
 				buffer.Set(y*2, x*2+1, styleGridLine.Render(strings.Repeat(boxRunes[blank], cellWidth)))
@@ -273,10 +324,6 @@ func insertEdges(puz *puzzle.Puzzle, buffer *Buffer) {
 }
 
 func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) {
-	styleEmpty := styleCellText.Inherit(styleCellPadding)
-	styleHighlight := styleHighlightClue.Inherit(styleCellPadding).Inherit(styleCellText)
-	styleHighlightCell := styleHighlightCell.Inherit(styleCellPadding).Inherit(styleCellText)
-
 	for y := 0; y < puz.Height; y++ {
 		for x := 0; x < puz.Width; x++ {
 			cell := puz.CellAt(x, y)
@@ -284,27 +331,56 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 				text := boxRunes[empty]
 				if !cell.IsEmpty() {
 					text = string(cell.Input)
-				} else if n := cell.Number(); n > 0 {
-					text = strconv.Itoa(n)
-				}
 
-				if selectedCell == cell {
-					buffer.Set(y*2+1, x*2+1, styleHighlightCell.Render(text))
-				} else if selectedClue == cell.ClueHoriz || selectedClue == cell.ClueVert {
-					buffer.Set(y*2+1, x*2+1, styleHighlight.Render(text))
-				} else {
-					if cell.IsEmpty() {
-						buffer.Set(y*2+1, x*2+1, styleEmpty.Render(text))
-					} else {
-						buffer.Set(y*2+1, x*2+1, styleCellPadding.Render(text))
+					if cell.IsCircled {
+						text = fmt.Sprintf("(%s)", text)
 					}
 				}
+
+				style := lipgloss.NewStyle().Inherit(styleCellPadding)
+				isSelected := selectedCell == cell
+				isHighlighted := selectedClue == cell.ClueHoriz || selectedClue == cell.ClueVert
+
+				if isSelected {
+					style = style.Inherit(styleHighlightCell)
+				} else if isHighlighted {
+					style = style.Inherit(styleHighlightClue)
+				}
+
+				if cell.IsEmpty() && (isHighlighted || isSelected) {
+					text = boxRunes[emptySelected]
+				}
+
+				if !cell.IsEmpty() && cell.ShowChecked {
+					if cell.IsCorrect() {
+						if selectedCell == cell {
+							style = style.Background(colorCorrect)
+						} else {
+							style = style.Foreground(colorCorrect)
+						}
+					} else {
+						if selectedCell == cell {
+							style = style.Background(colorError)
+						} else {
+							style = style.Foreground(colorError)
+						}
+					}
+				}
+
+				buffer.Set(y*2+1, x*2+1, style.Render(text))
 			} else {
 				buffer.Set(y*2+1, x*2+1, strings.Repeat(boxRunes[blank], cellWidth))
 			}
 		}
 	}
 }
+
+//   _____ _
+//  / ____| |
+// | |    | |_   _  ___ ___
+// | |    | | | | |/ _ \ __|
+// | |____| | |_| |  __\__ \
+//  \_____|_|\__,_|\___|___/
 
 func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue, downSelected bool) string {
 	var acrossBoxed, downBoxed string
@@ -356,16 +432,25 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) strin
 	return out
 }
 
-func truncateLines(str string, lineCount int) string {
-	if lineCount < 0 {
-		lineCount = 0
+//   _____ _        _               ____
+//  / ____| |      | |             |  _ \
+// | (___ | |_ __ _| |_ _   _ ___  | |_) | __ _ _ __
+//  \___ \| __/ _` | __| | | / __| |  _ < / _` | '__|
+//  ____) | |_ (_| | |_| |_| \__ \ | |_) | (_| | |
+// |_____/ \__\__,_|\__|\__,_|___/ |____/ \__,_|_|
+//
+
+func renderStatusBar(box common.LayoutBox) string {
+	shortcuts := "esc: Exit | ctrl+l: Check letter | crtl+w: Check word | ctrl+a: Check puzzle | ctrl+r: Reveal word | ctrl+p: Reveal puzzle"
+	version := "Cross-cli version 0.1"
+	shortcuts = lipgloss.NewStyle().Foreground(colorStatusBar).Render(shortcuts)
+
+	scLen := lipgloss.Width(shortcuts)
+	vLen := lipgloss.Width(version)
+	spacer := box.W - scLen - vLen
+	if spacer < 0 {
+		spacer = 0
 	}
 
-	lines := strings.Split(str, "\n")
-
-	if len(lines) < lineCount {
-		return str
-	}
-
-	return strings.Join(lines[:lineCount+1], "\n")
+	return fmt.Sprintf("%s%s%s", shortcuts, strings.Repeat(" ", spacer), version)
 }

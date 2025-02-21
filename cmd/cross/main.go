@@ -46,11 +46,17 @@ func main() {
 	// 	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color(strconv.Itoa(i))).Render("Hi: " + strconv.Itoa(i)))
 	// }
 
-	// return
-
 	flag.Parse()
-	p, _ := buildAndValidatePuzzle()
+	p, err := buildAndValidatePuzzle()
 
+	if err == nil {
+		fmt.Println("built")
+	} else {
+		fmt.Println("Error")
+		fmt.Println(err.Error())
+	}
+
+	// return
 	m := model.NewModel()
 
 	model.SetPuzzle(&m, p)

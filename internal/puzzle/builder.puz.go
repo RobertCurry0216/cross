@@ -20,38 +20,42 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 
 	// extract grid information
 	gridSize := puz.Width * puz.Height
-	offset := int(0x34)
+	stream := NewByteStream(b.raw)
+	stream.ChompN(0x34)
 
 	puz.solution = make([]byte, gridSize)
-	copy(puz.solution, b.raw[offset:offset+gridSize])
-	offset += gridSize
+	if data, n := stream.ChompN(gridSize); n == gridSize {
+		copy(puz.solution, data)
+	} else {
+		return nil, fmt.Errorf("Malformed .puz file: missing grid")
+	}
 
 	puz.input = make([]byte, gridSize)
-	copy(puz.input, b.raw[offset:offset+gridSize])
-	offset += gridSize
+	if data, n := stream.ChompN(gridSize); n == gridSize {
+		copy(puz.input, data)
+	} else {
+		return nil, fmt.Errorf("Malformed .puz file: missing grid")
+	}
 
 	// extract title
-	if title, n := readString(b.raw[offset:]); n == -1 {
+	if title, n := stream.readString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in title")
 	} else {
 		puz.Title = title
-		offset += n
 	}
 
 	// extract author
-	if author, n := readString(b.raw[offset:]); n == -1 {
+	if author, n := stream.readString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in author")
 	} else {
 		puz.Author = author
-		offset += n
 	}
 
 	// extract copyright
-	if copyright, n := readString(b.raw[offset:]); n == -1 {
+	if copyright, n := stream.readString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in copyright")
 	} else {
 		puz.Copyright = copyright
-		offset += n
 	}
 
 	// extract clues
@@ -60,15 +64,37 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 
 	for i := range clueCount {
 		// Extract the clue string
-		if clueText, n := readString(b.raw[offset:]); n == -1 {
+		if clueText, n := stream.readString(); n == -1 {
 			return nil, fmt.Errorf("Malformed .puz file: missing null terminator in clues")
 		} else {
 			puz.Clues[i] = NewClue(clueText)
-			offset += n
 		}
 	}
 
-	puz.Notes, _ = readString(b.raw[offset:])
+	if notes, n := stream.readString(); n != -1 {
+		puz.Notes = notes
+	}
+
+	// extra info
+	// for i := 0; i < 4; i++ {
+	// 	if section, n := stream.ChompN(0x04); n == 0x04 {
+	// 		var l int
+	// 		if data, n := stream.Ch
+	// 		l := int(binary.LittleEndian.Uint16(b.raw[offset : offset+0x02]))
+
+	// 		// todo
+	// 		// chksum := binary.LittleEndian.Uint16(b.raw[offset : offset+0x02])
+
+	// 		data := b.raw[offset : offset+l]
+
+	// 		switch section {
+	// 		case "GEXT":
+	// 			applyGEXT(puz, data)
+	// 		}
+	// 	} else {
+	// 		break
+	// 	}
+	// }
 
 	// cross reference
 	b.Puzzle = puz
@@ -77,6 +103,19 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 	InitPuzzle(puz)
 
 	return puz, nil
+}
+
+func applyGEXT(puz *Puzzle, data []byte) {
+	w := puz.Width
+	for y, row := range puz.Grid {
+		for x, cell := range row {
+			datum := data[y*w+x]
+
+			if datum&0x80 != 0 {
+				cell.IsCircled = true
+			}
+		}
+	}
 }
 
 func (b *PuzBuilder) Validate() error {
@@ -100,7 +139,6 @@ func (b *PuzBuilder) Validate() error {
 	cksum := b.checkSum()
 
 	if target != cksum {
-		fmt.Println("final", target, cksum)
 		return fmt.Errorf("Validation error: checksum")
 	}
 
