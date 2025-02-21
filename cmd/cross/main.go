@@ -42,19 +42,9 @@ func buildAndValidatePuzzle() (*puz.Puzzle, error) {
 }
 
 func main() {
-	// for i := 0; i < 16; i++ {
-	// 	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color(strconv.Itoa(i))).Render("Hi: " + strconv.Itoa(i)))
-	// }
 
 	flag.Parse()
-	p, err := buildAndValidatePuzzle()
-
-	if err == nil {
-		fmt.Println("built")
-	} else {
-		fmt.Println("Error")
-		fmt.Println(err.Error())
-	}
+	p, _ := buildAndValidatePuzzle()
 
 	// return
 	m := model.NewModel()

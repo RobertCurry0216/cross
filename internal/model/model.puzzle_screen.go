@@ -85,6 +85,29 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					c.Input = c.Solution
 				}
 			}
+		case "enter":
+			// // next clue
+			// if cell, ok := GetSelectedCell(&m); ok {
+			// 	puz := m.state.Puzzle
+			// 	var clue, nextClue *puzzle.Clue
+			// 	if m.state.PuzzleView.IsVert {
+			// 		clue = cell.ClueVert
+			// 		for i, tclue := range puz.VertClues {
+			// 			if clue == tclue && i < len(puz.VertClues)-1 {
+			// 				nextClue = puz.VertClues[i+1]
+			// 				break
+			// 			}
+			// 		}
+			// 	} else {
+			// 		clue = cell.ClueHoriz
+			// 		for i, tclue := range puz.HorizClues {
+			// 			if clue == tclue && i < len(puz.HorizClues)-1 {
+			// 				nextClue = puz.HorizClues[i+1]
+			// 				break
+			// 			}
+			// 		}
+			// 	}
+			// }
 		default:
 			pattern := `^[a-zA-Z]$`
 			re := regexp.MustCompile(pattern)
