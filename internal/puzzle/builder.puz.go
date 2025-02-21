@@ -75,42 +75,47 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 		puz.Notes = notes
 	}
 
+	// initialize cells
+	InitPuzzle(puz)
+
 	// extra info
-	// for i := 0; i < 4; i++ {
-	// 	if section, n := stream.ChompN(0x04); n == 0x04 {
-	// 		var l int
-	// 		if data, n := stream.Ch
-	// 		l := int(binary.LittleEndian.Uint16(b.raw[offset : offset+0x02]))
+	for i := 0; i < 4; i++ {
+		if section, n := stream.ChompN(0x04); n == 0x04 {
+			var data []byte
+			if lenData, n := stream.ChompN(0x02); n == 0x02 {
+				l := int(binary.LittleEndian.Uint16(lenData))
+				// todo: chksum
+				stream.ChompN(0x02)
+				data, _ = stream.ChompN(l)
+			} else {
+				break
+			}
 
-	// 		// todo
-	// 		// chksum := binary.LittleEndian.Uint16(b.raw[offset : offset+0x02])
-
-	// 		data := b.raw[offset : offset+l]
-
-	// 		switch section {
-	// 		case "GEXT":
-	// 			applyGEXT(puz, data)
-	// 		}
-	// 	} else {
-	// 		break
-	// 	}
-	// }
+			switch string(section) {
+			case "GEXT":
+				applyGEXT(puz, data)
+			default:
+				fmt.Println(string(section))
+			}
+		} else {
+			break
+		}
+		stream.Chomp()
+	}
 
 	// cross reference
 	b.Puzzle = puz
 	puz.builder = b
-
-	InitPuzzle(puz)
 
 	return puz, nil
 }
 
 func applyGEXT(puz *Puzzle, data []byte) {
 	w := puz.Width
-	for y, row := range puz.Grid {
-		for x, cell := range row {
+	for y := 0; y < puz.Height; y++ {
+		for x := 0; x < puz.Width; x++ {
+			cell := puz.Grid[y][x]
 			datum := data[y*w+x]
-
 			if datum&0x80 != 0 {
 				cell.IsCircled = true
 			}

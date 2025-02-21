@@ -331,10 +331,6 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 				text := boxRunes[empty]
 				if !cell.IsEmpty() {
 					text = string(cell.Input)
-
-					if cell.IsCircled {
-						text = fmt.Sprintf("(%s)", text)
-					}
 				}
 
 				style := lipgloss.NewStyle().Inherit(styleCellPadding)
@@ -365,6 +361,10 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 							style = style.Foreground(colorError)
 						}
 					}
+				}
+
+				if cell.IsCircled {
+					text = fmt.Sprintf("(%s)", text)
 				}
 
 				buffer.Set(y*2+1, x*2+1, style.Render(text))
