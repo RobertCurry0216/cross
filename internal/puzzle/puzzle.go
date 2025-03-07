@@ -5,9 +5,9 @@ import (
 )
 
 type Puzzle struct {
-	input    []byte
-	solution []byte
-	builder  iBuilder
+	Input    []byte
+	Solution []byte
+	Builder  IBuilder
 
 	Width       int
 	Height      int
@@ -32,18 +32,18 @@ func (puz *Puzzle) String() string {
 
 func (puz *Puzzle) SolutionAt(x, y int) byte {
 	idx := (y * puz.Width) + x
-	if idx > len(puz.solution) {
+	if idx > len(puz.Solution) {
 		return 0
 	}
-	return puz.solution[idx]
+	return puz.Solution[idx]
 }
 
 func (puz *Puzzle) InputAt(x, y int) byte {
 	idx := (y * puz.Width) + x
-	if idx > len(puz.input) {
+	if idx > len(puz.Input) {
 		return 0
 	}
-	return puz.input[idx]
+	return puz.Input[idx]
 }
 
 func (puz *Puzzle) CellAt(x, y int) *Cell {
@@ -54,5 +54,5 @@ func (puz *Puzzle) CellAt(x, y int) *Cell {
 }
 
 func (puz *Puzzle) Save() {
-	puz.builder.Write()
+	puz.Builder.Write()
 }

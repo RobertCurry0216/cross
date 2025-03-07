@@ -34,37 +34,37 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 	stream := NewByteStream(b.raw)
 	stream.ChompN(0x34)
 
-	puz.solution = make([]byte, gridSize)
+	puz.Solution = make([]byte, gridSize)
 	if data, n := stream.ChompN(gridSize); n == gridSize {
-		copy(puz.solution, data)
+		copy(puz.Solution, data)
 	} else {
 		return nil, fmt.Errorf("Malformed .puz file: missing grid")
 	}
 
-	puz.input = make([]byte, gridSize)
+	puz.Input = make([]byte, gridSize)
 	if data, n := stream.ChompN(gridSize); n == gridSize {
-		copy(puz.input, data)
+		copy(puz.Input, data)
 		b.puzzleInput = data
 	} else {
 		return nil, fmt.Errorf("Malformed .puz file: missing grid")
 	}
 
 	// extract title
-	if title, n := stream.readString(); n == -1 {
+	if title, n := stream.ReadString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in title")
 	} else {
 		puz.Title = title
 	}
 
 	// extract author
-	if author, n := stream.readString(); n == -1 {
+	if author, n := stream.ReadString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in author")
 	} else {
 		puz.Author = author
 	}
 
 	// extract copyright
-	if copyright, n := stream.readString(); n == -1 {
+	if copyright, n := stream.ReadString(); n == -1 {
 		return nil, fmt.Errorf("Malformed .puz file: missing null terminator in copyright")
 	} else {
 		puz.Copyright = copyright
@@ -76,14 +76,14 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 
 	for i := range clueCount {
 		// Extract the clue string
-		if clueText, n := stream.readString(); n == -1 {
+		if clueText, n := stream.ReadString(); n == -1 {
 			return nil, fmt.Errorf("Malformed .puz file: missing null terminator in clues")
 		} else {
 			puz.Clues[i] = NewClue(clueText)
 		}
 	}
 
-	if notes, n := stream.readString(); n != -1 {
+	if notes, n := stream.ReadString(); n != -1 {
 		puz.Notes = notes
 	}
 
@@ -118,7 +118,7 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 
 	// cross reference
 	b.Puzzle = puz
-	puz.builder = b
+	puz.Builder = b
 
 	return puz, nil
 }
@@ -129,7 +129,7 @@ func (b *PuzBuilder) Write() {
 }
 
 func (b *PuzBuilder) updateRaw() {
-	copy(b.Puzzle.input, b.puzzleInput)
+	copy(b.Puzzle.Input, b.puzzleInput)
 	cib := b.getCIB()
 	binary.LittleEndian.PutUint16(b.cib, cib)
 }
@@ -154,7 +154,7 @@ func (b *PuzBuilder) Validate() error {
 
 	// validate cib
 	cib := b.getCIB()
-	cibCksum := checksumRegion(b.raw[0x2C:0x2C+8], 0)
+	cibCksum := ChecksumRegion(b.raw[0x2C:0x2C+8], 0)
 	if cib != cibCksum {
 		return fmt.Errorf("Validation error: cib")
 	}
@@ -170,7 +170,7 @@ func (b *PuzBuilder) Validate() error {
 	return nil
 }
 
-func checksumRegion(region []byte, cksum uint16) uint16 {
+func ChecksumRegion(region []byte, cksum uint16) uint16 {
 	for _, val := range region {
 		// Check the least significant bit
 		if cksum&0x01 == 0x01 {
@@ -189,21 +189,21 @@ func (b *PuzBuilder) getCheckSum() uint16 {
 	cksum := b.getCIB()
 
 	//validate check sum
-	cksum = checksumRegion(b.Puzzle.solution, cksum)
-	cksum = checksumRegion(b.Puzzle.input, cksum)
+	cksum = ChecksumRegion(b.Puzzle.Solution, cksum)
+	cksum = ChecksumRegion(b.Puzzle.Input, cksum)
 
 	for _, metaField := range []string{b.Puzzle.Title, b.Puzzle.Author, b.Puzzle.Copyright} {
 		if len(metaField) > 0 {
-			cksum = checksumRegion([]byte(metaField+"\x00"), cksum) // Include null terminator
+			cksum = ChecksumRegion([]byte(metaField+"\x00"), cksum) // Include null terminator
 		}
 	}
 
 	for _, clue := range b.Puzzle.Clues {
-		cksum = checksumRegion([]byte(clue.Text), cksum)
+		cksum = ChecksumRegion([]byte(clue.Text), cksum)
 	}
 
 	if len(b.Puzzle.Notes) > 0 {
-		cksum = checksumRegion([]byte(b.Puzzle.Notes+"\x00"), cksum) // Include null terminator
+		cksum = ChecksumRegion([]byte(b.Puzzle.Notes+"\x00"), cksum) // Include null terminator
 	}
 
 	return cksum

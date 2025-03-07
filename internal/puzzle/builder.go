@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 )
 
-type iBuilder interface {
+type IBuilder interface {
 	Build() (*Puzzle, error)
 	Validate() error
 	Write()
 }
 
-func NewBuilderFromFile(path string) (iBuilder, error) {
+func NewBuilderFromFile(path string) (IBuilder, error) {
 	ext := filepath.Ext(path)
 	switch ext {
 	case ".puz":
@@ -33,18 +33,18 @@ func InitPuzzle(puz *Puzzle) error {
 
 	for i := 0; i < size; i++ {
 		puz.Grid[i] = NewCell()
-		if puz.solution[i] != '.' {
-			puz.Grid[i].Solution = puz.solution[i]
+		if puz.Solution[i] != '.' {
+			puz.Grid[i].Solution = puz.Solution[i]
 		}
-		puz.Grid[i].Input = &puz.input[i]
+		puz.Grid[i].Input = &puz.Input[i]
 	}
 
-	assignClues(puz)
+	AssignClues(puz)
 
 	return nil
 }
 
-func needsAcrossClue(puz *Puzzle, row, col int) bool {
+func NeedsAcrossClue(puz *Puzzle, row, col int) bool {
 	cell := puz.CellAt(col, row)
 	if cell == nil || cell.IsBlank() {
 		return false
@@ -59,7 +59,7 @@ func needsAcrossClue(puz *Puzzle, row, col int) bool {
 	return false
 }
 
-func needsDownClue(puz *Puzzle, row, col int) bool {
+func NeedsDownClue(puz *Puzzle, row, col int) bool {
 	cell := puz.CellAt(col, row)
 	if cell == nil || cell.IsBlank() {
 		return false
@@ -74,7 +74,7 @@ func needsDownClue(puz *Puzzle, row, col int) bool {
 	return false
 }
 
-func assignClues(puz *Puzzle) error {
+func AssignClues(puz *Puzzle) error {
 	puz.DownClues = make([]*Clue, 0, len(puz.Clues))
 	puz.AcrossClues = make([]*Clue, 0, len(puz.Clues))
 	clueIdx := 0
@@ -84,8 +84,8 @@ func assignClues(puz *Puzzle) error {
 	for row := range puz.Height {
 		for col := range puz.Width {
 			cell := puz.CellAt(col, row)
-			needsAcross := needsAcrossClue(puz, row, col)
-			needsDown := needsDownClue(puz, row, col)
+			needsAcross := NeedsAcrossClue(puz, row, col)
+			needsDown := NeedsDownClue(puz, row, col)
 
 			if needsAcross {
 				clue := puz.Clues[clueIdx]

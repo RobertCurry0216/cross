@@ -5,30 +5,30 @@ import (
 )
 
 type ByteStream struct {
-	raw     []byte
-	pointer int
-	size    int
+	Raw     []byte
+	Pointer int
+	Size    int
 }
 
 func NewByteStream(raw []byte) *ByteStream {
-	return &ByteStream{raw: raw, size: len(raw)}
+	return &ByteStream{Raw: raw, Size: len(raw)}
 }
 
-func (s *ByteStream) incPointer(n int) {
-	s.pointer += n
+func (s *ByteStream) IncPointer(n int) {
+	s.Pointer += n
 }
 
 func (s *ByteStream) ChompN(n int) ([]byte, int) {
-	if s.pointer == s.size || n < 0 {
+	if s.Pointer == s.Size || n < 0 {
 		return []byte{}, 0
 	}
 
-	if n+s.pointer > s.size {
-		n = s.size - s.pointer
+	if n+s.Pointer > s.Size {
+		n = s.Size - s.Pointer
 	}
 
-	out := s.raw[s.pointer : s.pointer+n]
-	s.incPointer(n)
+	out := s.Raw[s.Pointer : s.Pointer+n]
+	s.IncPointer(n)
 
 	return out, int(n)
 }
@@ -37,16 +37,16 @@ func (s *ByteStream) Chomp() ([]byte, int) {
 	return s.ChompN(1)
 }
 
-func (s *ByteStream) readString() (string, int) {
-	nullIndex := bytes.IndexByte(s.raw[s.pointer:], 0)
+func (s *ByteStream) ReadString() (string, int) {
+	nullIndex := bytes.IndexByte(s.Raw[s.Pointer:], 0)
 	if nullIndex == -1 {
 		return "", -1
 	}
 
-	str := string(s.raw[s.pointer : s.pointer+nullIndex])
+	str := string(s.Raw[s.Pointer : s.Pointer+nullIndex])
 	offset := nullIndex + 1 // Move past the null terminator
 
-	s.incPointer(offset)
+	s.IncPointer(offset)
 
 	return str, offset
 }
