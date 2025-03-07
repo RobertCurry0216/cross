@@ -81,6 +81,10 @@ func AssignClues(puz *Puzzle) error {
 	clueNum := 1
 	maxClues := len(puz.Clues)
 
+	if maxClues == 0 {
+		return nil
+	}
+
 	for row := range puz.Height {
 		for col := range puz.Width {
 			cell := puz.CellAt(col, row)

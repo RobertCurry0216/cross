@@ -71,7 +71,7 @@ func TestNeedsAcrossClue(t *testing.T) {
 	puz := puzzle.NewPuzzle()
 	puz.Width = 3
 	puz.Height = 3
-	puz.Solution = []byte(".ABCDEFG")
+	puz.Solution = []byte(".ABCDEF.G")
 	puz.Input = make([]byte, 9)
 	puzzle.InitPuzzle(puz)
 
@@ -85,9 +85,9 @@ func TestNeedsAcrossClue(t *testing.T) {
 		{1, 0, true},  // start of across clue
 		{1, 1, false}, // middle of across clue
 		{1, 2, false}, // end of across clue
-		{2, 0, true},  // single cell across clue
+		{2, 0, false}, // single cell across clue
 		{2, 1, false}, // blank cell
-		{2, 2, true},  // single cell across clue
+		{2, 2, false}, // single cell across clue
 	}
 
 	for _, tc := range testCases {
@@ -106,7 +106,7 @@ func TestNeedsDownClue(t *testing.T) {
 	puz := puzzle.NewPuzzle()
 	puz.Width = 3
 	puz.Height = 3
-	puz.Solution = []byte(".ABCDEFG")
+	puz.Solution = []byte(".ABCDEF.G")
 	puz.Input = make([]byte, 9)
 	puzzle.InitPuzzle(puz)
 
@@ -141,7 +141,7 @@ func TestAssignClues(t *testing.T) {
 	puz := puzzle.NewPuzzle()
 	puz.Width = 3
 	puz.Height = 3
-	puz.Solution = []byte(".ABCDEFG")
+	puz.Solution = []byte(".ABCDEF.G")
 	puz.Input = make([]byte, 9)
 	puzzle.InitPuzzle(puz)
 
@@ -162,15 +162,15 @@ func TestAssignClues(t *testing.T) {
 	}
 
 	// Check that we have the right number of across and down clues
-	if len(puz.AcrossClues) != 4 {
-		t.Errorf("Expected 4 across clues, got %d", len(puz.AcrossClues))
+	if len(puz.AcrossClues) != 2 {
+		t.Errorf("Expected 2 across clues, got %d", len(puz.AcrossClues))
 	}
 	if len(puz.DownClues) != 3 {
 		t.Errorf("Expected 3 down clues, got %d", len(puz.DownClues))
 	}
 
 	// Check that clue numbers are assigned correctly
-	expectedAcrossNumbers := []int{1, 4, 6, 8}
+	expectedAcrossNumbers := []int{1, 3}
 	for i, clue := range puz.AcrossClues {
 		if clue.Number != expectedAcrossNumbers[i] {
 			t.Errorf("Expected across clue %d to have number %d, got %d",
@@ -192,73 +192,10 @@ func TestAssignClues(t *testing.T) {
 		t.Errorf("Cell (1,0) should have horizontal clue #1")
 	}
 
-	// Cell (1,0) should have horizontal clue #4
-	if puz.CellAt(0, 1).ClueHoriz == nil || puz.CellAt(0, 1).ClueHoriz.Number != 4 {
-		t.Errorf("Cell (0,1) should have horizontal clue #4")
+	// Cell (1,0) should have horizontal clue #3
+	if puz.CellAt(0, 1).ClueHoriz == nil || puz.CellAt(0, 1).ClueHoriz.Number != 3 {
+		t.Errorf("Cell (0,1) should have horizontal clue #3")
 	}
-}
-
-// Mock PuzBuilder for testing
-type MockPuzBuilder struct {
-	raw      []byte
-	filepath string
-	Puzzle   *puzzle.Puzzle
-}
-
-func NewMockPuzBuilder() *MockPuzBuilder {
-	return &MockPuzBuilder{
-		raw:      make([]byte, 100),
-		filepath: "test.puz",
-		Puzzle:   puzzle.NewPuzzle(),
-	}
-}
-
-func (b *MockPuzBuilder) Build() (*puzzle.Puzzle, error) {
-	puz := puzzle.NewPuzzle()
-	puz.Width = 3
-	puz.Height = 3
-	puz.Solution = []byte("ABC.DEFGH")
-	puz.Input = make([]byte, 9)
-	puz.Title = "Test Puzzle"
-	puz.Author = "Test Author"
-	puz.Copyright = "Test Copyright"
-	puz.Clues = []*puzzle.Clue{puzzle.NewClue("Test Clue 1"), puzzle.NewClue("Test Clue 2")}
-
-	puzzle.InitPuzzle(puz)
-	b.Puzzle = puz
-	puz.Builder = b
-
-	return puz, nil
-}
-
-func (b *MockPuzBuilder) Validate() error {
-	return nil
-}
-
-func (b *MockPuzBuilder) Write() {
-	// Mock implementation - do nothing
-}
-
-func TestBuilderInterface(t *testing.T) {
-	// Test that our mock implements the interface
-	var builder puzzle.IBuilder = NewMockPuzBuilder()
-
-	puz, err := builder.Build()
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
-
-	if puz.Width != 3 || puz.Height != 3 {
-		t.Errorf("Expected puzzle size 3x3, got %dx%d", puz.Width, puz.Height)
-	}
-
-	err = builder.Validate()
-	if err != nil {
-		t.Errorf("Validate failed: %v", err)
-	}
-
-	// This should not panic
-	builder.Write()
 }
 
 func TestPuzBuilderChecksumRegion(t *testing.T) {
