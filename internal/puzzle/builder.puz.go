@@ -12,13 +12,12 @@ type PuzBuilder struct {
 	Puzzle   *Puzzle
 
 	// write locations
-	cib         []byte
 	puzzleInput []byte
 	gext        []byte
 }
 
 func NewPuzBuilder(raw []byte, path string) *PuzBuilder {
-	return &PuzBuilder{raw: raw, filepath: path, cib: raw[0x0E : 0x0E+2]}
+	return &PuzBuilder{raw: raw, filepath: path}
 }
 
 func (b *PuzBuilder) Build() (*Puzzle, error) {
@@ -131,14 +130,10 @@ func (b *PuzBuilder) Write() {
 func (b *PuzBuilder) updateRaw() {
 	// Copy from Puzzle.Input (which contains user edits) to puzzleInput (which is part of raw)
 	copy(b.puzzleInput, b.Puzzle.Input)
-	
+
 	// Update the checksum
 	cksum := b.getCheckSum()
 	binary.LittleEndian.PutUint16(b.raw[0:2], cksum)
-	
-	// Update the CIB
-	cib := b.getCIB()
-	binary.LittleEndian.PutUint16(b.cib, cib)
 }
 
 func applyGEXT(puz *Puzzle, data []byte) {
