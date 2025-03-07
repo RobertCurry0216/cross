@@ -41,7 +41,7 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 				}
-				cell.Input = ' '
+				*cell.Input = ' '
 			}
 		case "ctrl+l":
 			// check letter
@@ -64,11 +64,9 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "ctrl+a":
 			// check puzzle
-			for _, row := range m.state.Puzzle.Grid {
-				for _, cell := range row {
-					if !cell.IsBlank() {
-						cell.ShowChecked = true
-					}
+			for _, cell := range m.state.Puzzle.Grid {
+				if !cell.IsBlank() {
+					cell.ShowChecked = true
 				}
 			}
 		case "ctrl+r":
@@ -82,32 +80,9 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				for _, c := range clue.Cells {
-					c.Input = c.Solution
+					*c.Input = c.Solution
 				}
 			}
-		case "enter":
-			// // next clue
-			// if cell, ok := GetSelectedCell(&m); ok {
-			// 	puz := m.state.Puzzle
-			// 	var clue, nextClue *puzzle.Clue
-			// 	if m.state.PuzzleView.IsVert {
-			// 		clue = cell.ClueVert
-			// 		for i, tclue := range puz.VertClues {
-			// 			if clue == tclue && i < len(puz.VertClues)-1 {
-			// 				nextClue = puz.VertClues[i+1]
-			// 				break
-			// 			}
-			// 		}
-			// 	} else {
-			// 		clue = cell.ClueHoriz
-			// 		for i, tclue := range puz.HorizClues {
-			// 			if clue == tclue && i < len(puz.HorizClues)-1 {
-			// 				nextClue = puz.HorizClues[i+1]
-			// 				break
-			// 			}
-			// 		}
-			// 	}
-			// }
 		default:
 			pattern := `^[a-zA-Z]$`
 			re := regexp.MustCompile(pattern)
@@ -158,7 +133,7 @@ func SelectNextCell(m *Model, yDir, xDir int) {
 
 func SetLetter(m *Model, letter string) {
 	if cell, ok := GetSelectedCell(m); ok && len(letter) == 1 {
-		cell.Input = strings.ToUpper(letter)[0]
+		*cell.Input = strings.ToUpper(letter)[0]
 		cell.ShowChecked = false
 	}
 }

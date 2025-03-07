@@ -6,13 +6,10 @@ import (
 	"path/filepath"
 )
 
-type Builder struct {
-	raw []byte
-}
-
 type iBuilder interface {
 	Build() (*Puzzle, error)
 	Validate() error
+	Write()
 }
 
 func NewBuilderFromFile(path string) (iBuilder, error) {
@@ -24,24 +21,22 @@ func NewBuilderFromFile(path string) (iBuilder, error) {
 			return nil, fmt.Errorf("failed to read file: %w", err)
 		}
 
-		return &PuzBuilder{raw: raw}, nil
+		return NewPuzBuilder(raw, path), nil
 	}
 
 	return nil, fmt.Errorf("failed to parse file with ext: %v", ext)
 }
 
 func InitPuzzle(puz *Puzzle) error {
-	puz.Grid = make([][]*Cell, puz.Height)
+	size := puz.Width * puz.Height
+	puz.Grid = make([]*Cell, size)
 
-	for y := range int(puz.Height) {
-		puz.Grid[y] = make([]*Cell, puz.Width)
-		for x := range int(puz.Width) {
-			puz.Grid[y][x] = NewCell()
-			cell := puz.CellAt(x, y)
-
-			cell.Solution = puz.SolutionAt(x, y)
-			cell.Input = puz.InputAt(x, y)
+	for i := 0; i < size; i++ {
+		puz.Grid[i] = NewCell()
+		if puz.solution[i] != '.' {
+			puz.Grid[i].Solution = puz.solution[i]
 		}
+		puz.Grid[i].Input = &puz.input[i]
 	}
 
 	assignClues(puz)
@@ -80,8 +75,8 @@ func needsDownClue(puz *Puzzle, row, col int) bool {
 }
 
 func assignClues(puz *Puzzle) error {
-	puz.VertClues = make([]*Clue, 0, len(puz.Clues))
-	puz.HorizClues = make([]*Clue, 0, len(puz.Clues))
+	puz.DownClues = make([]*Clue, 0, len(puz.Clues))
+	puz.AcrossClues = make([]*Clue, 0, len(puz.Clues))
 	clueIdx := 0
 	clueNum := 1
 	maxClues := len(puz.Clues)
@@ -95,7 +90,7 @@ func assignClues(puz *Puzzle) error {
 			if needsAcross {
 				clue := puz.Clues[clueIdx]
 				clue.Number = clueNum
-				puz.HorizClues = append(puz.HorizClues, clue)
+				puz.AcrossClues = append(puz.AcrossClues, clue)
 				cell.ClueHoriz = clue
 				clueIdx++
 
@@ -115,7 +110,7 @@ func assignClues(puz *Puzzle) error {
 			if needsDown {
 				clue := puz.Clues[clueIdx]
 				clue.Number = clueNum
-				puz.VertClues = append(puz.VertClues, clue)
+				puz.DownClues = append(puz.DownClues, clue)
 				cell.ClueVert = clue
 				clueIdx++
 

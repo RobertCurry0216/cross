@@ -3,11 +3,22 @@ package puzzle
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 )
 
 type PuzBuilder struct {
-	raw    []byte
-	Puzzle *Puzzle
+	raw      []byte
+	filepath string
+	Puzzle   *Puzzle
+
+	// write locations
+	cib         []byte
+	puzzleInput []byte
+	gext        []byte
+}
+
+func NewPuzBuilder(raw []byte, path string) *PuzBuilder {
+	return &PuzBuilder{raw: raw, filepath: path, cib: raw[0x0E : 0x0E+2]}
 }
 
 func (b *PuzBuilder) Build() (*Puzzle, error) {
@@ -33,6 +44,7 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 	puz.input = make([]byte, gridSize)
 	if data, n := stream.ChompN(gridSize); n == gridSize {
 		copy(puz.input, data)
+		b.puzzleInput = data
 	} else {
 		return nil, fmt.Errorf("Malformed .puz file: missing grid")
 	}
@@ -94,6 +106,7 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 			switch string(section) {
 			case "GEXT":
 				applyGEXT(puz, data)
+				b.gext = data
 			default:
 				fmt.Println(string(section))
 			}
@@ -110,15 +123,22 @@ func (b *PuzBuilder) Build() (*Puzzle, error) {
 	return puz, nil
 }
 
+func (b *PuzBuilder) Write() {
+	b.updateRaw()
+	os.WriteFile(b.filepath, b.raw, 0644)
+}
+
+func (b *PuzBuilder) updateRaw() {
+	copy(b.Puzzle.input, b.puzzleInput)
+	cib := b.getCIB()
+	binary.LittleEndian.PutUint16(b.cib, cib)
+}
+
 func applyGEXT(puz *Puzzle, data []byte) {
-	w := puz.Width
-	for y := 0; y < puz.Height; y++ {
-		for x := 0; x < puz.Width; x++ {
-			cell := puz.Grid[y][x]
-			datum := data[y*w+x]
-			if datum&0x80 != 0 {
-				cell.IsCircled = true
-			}
+	for i, cell := range puz.Grid {
+		datum := data[i]
+		if datum&0x80 != 0 {
+			cell.IsCircled = true
 		}
 	}
 }
@@ -133,7 +153,7 @@ func (b *PuzBuilder) Validate() error {
 	}
 
 	// validate cib
-	cib := b.cib()
+	cib := b.getCIB()
 	cibCksum := checksumRegion(b.raw[0x2C:0x2C+8], 0)
 	if cib != cibCksum {
 		return fmt.Errorf("Validation error: cib")
@@ -141,7 +161,7 @@ func (b *PuzBuilder) Validate() error {
 
 	//validate check sum
 	target := binary.LittleEndian.Uint16(b.raw[0:2])
-	cksum := b.checkSum()
+	cksum := b.getCheckSum()
 
 	if target != cksum {
 		return fmt.Errorf("Validation error: checksum")
@@ -165,8 +185,8 @@ func checksumRegion(region []byte, cksum uint16) uint16 {
 	return cksum
 }
 
-func (b *PuzBuilder) checkSum() uint16 {
-	cksum := b.cib()
+func (b *PuzBuilder) getCheckSum() uint16 {
+	cksum := b.getCIB()
 
 	//validate check sum
 	cksum = checksumRegion(b.Puzzle.solution, cksum)
@@ -189,6 +209,6 @@ func (b *PuzBuilder) checkSum() uint16 {
 	return cksum
 }
 
-func (b *PuzBuilder) cib() uint16 {
+func (b *PuzBuilder) getCIB() uint16 {
 	return binary.LittleEndian.Uint16(b.raw[0x0E : 0x0E+2])
 }

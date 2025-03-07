@@ -330,7 +330,7 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 			if !puzzle.IsCellBlankOrNil(cell) {
 				text := boxRunes[empty]
 				if !cell.IsEmpty() {
-					text = string(cell.Input)
+					text = string(*cell.Input)
 				}
 
 				style := lipgloss.NewStyle().Inherit(styleCellPadding)
@@ -387,8 +387,8 @@ func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzz
 	boxHeight := int(box.H/2) - 2
 	boxRemainder := box.H % 2
 
-	acrossText := renderClueSet(box.W, puzzle.HorizClues, selectedClue)
-	downText := renderClueSet(box.W, puzzle.VertClues, selectedClue)
+	acrossText := renderClueSet(box.W, puzzle.AcrossClues, selectedClue)
+	downText := renderClueSet(box.W, puzzle.DownClues, selectedClue)
 
 	acrossHeight := boxHeight + boxRemainder
 	downHeight := boxHeight

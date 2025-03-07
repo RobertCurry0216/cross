@@ -40,6 +40,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.PopView()
 			if len(m.state.Views) == 0 {
+				m.state.Puzzle.Save()
 				return m, tea.Quit
 			} else {
 				return m, nil

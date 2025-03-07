@@ -4,7 +4,7 @@ type Cell struct {
 	ClueVert    *Clue
 	ClueHoriz   *Clue
 	Solution    byte
-	Input       byte
+	Input       *byte
 	Selected    bool
 	ShowChecked bool
 	IsCircled   bool
@@ -15,11 +15,11 @@ func NewCell() *Cell {
 }
 
 func (cell *Cell) IsBlank() bool {
-	return cell.Solution == '.'
+	return cell.Solution == 0
 }
 
 func (cell *Cell) IsEmpty() bool {
-	return cell.Input < 'A' || cell.Input > 'Z'
+	return *cell.Input < 'A' || *cell.Input > 'Z'
 }
 
 func (cell *Cell) Number() int {
@@ -32,7 +32,7 @@ func (cell *Cell) Number() int {
 }
 
 func (cell *Cell) IsCorrect() bool {
-	return cell.Input == cell.Solution
+	return *cell.Input == cell.Solution
 }
 
 // helpers
