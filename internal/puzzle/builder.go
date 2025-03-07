@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 )
 
-type IBuilder interface {
+type Buildable interface {
 	Build() (*Puzzle, error)
 	Validate() error
 	Write()
 }
 
-func NewBuilderFromFile(path string) (IBuilder, error) {
+func NewBuilderFromFile(path string) (Buildable, error) {
 	ext := filepath.Ext(path)
 	switch ext {
 	case ".puz":

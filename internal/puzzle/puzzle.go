@@ -7,7 +7,7 @@ import (
 type Puzzle struct {
 	Input    []byte
 	Solution []byte
-	Builder  IBuilder
+	Builder  Buildable
 
 	Width       int
 	Height      int
