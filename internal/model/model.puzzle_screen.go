@@ -94,6 +94,7 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					SelectNextCell(&m, 0, 1)
 				}
 			}
+			m.state.Puzzle.Save()
 			return m, nil
 		}
 	}

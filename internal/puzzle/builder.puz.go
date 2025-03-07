@@ -129,7 +129,14 @@ func (b *PuzBuilder) Write() {
 }
 
 func (b *PuzBuilder) updateRaw() {
-	copy(b.Puzzle.Input, b.puzzleInput)
+	// Copy from Puzzle.Input (which contains user edits) to puzzleInput (which is part of raw)
+	copy(b.puzzleInput, b.Puzzle.Input)
+	
+	// Update the checksum
+	cksum := b.getCheckSum()
+	binary.LittleEndian.PutUint16(b.raw[0:2], cksum)
+	
+	// Update the CIB
 	cib := b.getCIB()
 	binary.LittleEndian.PutUint16(b.cib, cib)
 }
