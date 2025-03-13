@@ -88,7 +88,7 @@ func init() {
 	// styles
 	styleBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 	styleGridLine = lipgloss.NewStyle().Foreground(colorGridLine)
-	styleTitle = lipgloss.NewStyle().Underline(true).Bold(true)
+	styleTitle = lipgloss.NewStyle().Bold(true)
 	styleCellText = lipgloss.NewStyle().Faint(true)
 	styleHighlightClue = lipgloss.NewStyle().Faint(false).Bold(true)
 	styleHighlightCell = lipgloss.NewStyle().Faint(false).Bold(true).Background(colorHighlightBG).Foreground(colorHighlightFG)
@@ -104,11 +104,6 @@ func (s *PuzzleScreen) Init(state common.State) {
 }
 
 func (s *PuzzleScreen) View(state common.State) string {
-	// puz := state.Puzzle
-	// txt := lipgloss.JoinVertical(lipgloss.Left, puz.Title, puz.Author, puz.Copyright, puz.Notes)
-	// return txt
-
-	// return state.Debug
 	puzState := state.PuzzleView
 	cell := s.puzzle.CellAt(puzState.X, puzState.Y)
 	var clue *puzzle.Clue
@@ -132,7 +127,7 @@ func (s *PuzzleScreen) View(state common.State) string {
 	status := renderStatusBar(layout.status)
 
 	// combine
-	rightColumn := renderClues(layout.clues, s.puzzle, clue, puzState.IsVert)
+	rightColumn := renderClues(layout.clues, s.puzzle, clue)
 	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
 
 	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
@@ -143,20 +138,6 @@ func (s *PuzzleScreen) View(state common.State) string {
 }
 
 // Helpers
-
-func truncateLines(str string, lineCount int) string {
-	if lineCount < 0 {
-		lineCount = 0
-	}
-
-	lines := strings.Split(str, "\n")
-
-	if len(lines) < lineCount {
-		return str
-	}
-
-	return strings.Join(lines[:lineCount+1], "\n")
-}
 
 func titledBorder(title string) lipgloss.Border {
 	border := lipgloss.RoundedBorder()
@@ -382,35 +363,29 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 // | |____| | |_| |  __\__ \
 //  \_____|_|\__,_|\___|___/
 
-func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue, downSelected bool) string {
-	var acrossBoxed, downBoxed string
-	boxHeight := int(box.H/2) - 2
-	boxRemainder := box.H % 2
+func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue) string {
+	acrossTitle := styleTitle.Render("Across:")
+	acrossText, lnAcross := renderClueSet(box.W, puzzle.AcrossClues, selectedClue)
+	downTitle := styleTitle.Render("Down:")
+	downText, lnDown := renderClueSet(box.W, puzzle.DownClues, selectedClue)
 
-	acrossText := renderClueSet(box.W, puzzle.AcrossClues, selectedClue)
-	downText := renderClueSet(box.W, puzzle.DownClues, selectedClue)
+	allClues := lipgloss.JoinVertical(lipgloss.Left, acrossTitle, acrossText, downTitle, downText)
 
-	acrossHeight := boxHeight + boxRemainder
-	downHeight := boxHeight
-
-	if acrossHeight < strings.Count(acrossText, "\n") || downHeight < strings.Count(downText, "\n") {
-		if downSelected {
-			acrossText = truncateLines(acrossText, (boxHeight*2)-strings.Count(downText, "\n")-boxRemainder)
-			acrossHeight = 0
-		} else {
-			downText = truncateLines(downText, (boxHeight*2)-strings.Count(acrossText, "\n")-boxRemainder)
-			downHeight = 0
-		}
+	// ensure selected clue is visible
+	lnSelected := lnAcross + 1
+	if lnAcross < 0 {
+		lnSelected = lipgloss.Height(acrossText) + 2 + lnDown
 	}
 
-	acrossBoxed = styleBorder.Border(titledBorder("Across")).Height(acrossHeight).Width(box.W - 2).Render(acrossText)
-	downBoxed = styleBorder.Border(titledBorder("Down")).Height(downHeight).Width(box.W - 2).Render(downText)
+	allClues = centerLine(allClues, box.H-2, lnSelected)
+	boxedClues := styleBorder.Border(titledBorder("Clues")).Height(box.H - 2).Width(box.W - 2).Render(allClues)
 
-	return lipgloss.JoinVertical(lipgloss.Left, acrossBoxed, downBoxed)
+	return boxedClues
 }
 
-func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) string {
+func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) (string, int) {
 	var out string
+	var lineNum = -1
 
 	for i, clue := range clues {
 		num := fmt.Sprintf("%2d. ", clue.Number)
@@ -418,6 +393,7 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) strin
 		clueText = fmt.Sprintf("%s (%d)", clueText, len(clue.Cells))
 		if selectedClue == clue {
 			clueText = styleHighlightClue.Render(clueText)
+			lineNum = lipgloss.Height(out)
 		} else {
 			clueText = styleCellText.Render(clueText)
 		}
@@ -429,7 +405,27 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) strin
 		}
 	}
 
-	return out
+	return out, lineNum
+}
+
+func centerLine(str string, maxH, n int) string {
+	lines := strings.Split(str, "\n")
+	lineCount := len(lines)
+	if lineCount < maxH || maxH < 0 || n < 0 {
+		return str
+	}
+	startIdx := n - (maxH / 2)
+	if startIdx < 0 {
+		startIdx = 0
+	}
+
+	endIdx := startIdx + maxH
+	if endIdx > lineCount {
+		endIdx = lineCount
+		startIdx = lineCount - maxH
+	}
+
+	return strings.Join(lines[startIdx:endIdx], "\n")
 }
 
 //   _____ _        _               ____
