@@ -144,9 +144,7 @@ func GetSelectedCell(m *Model) (*puzzle.Cell, bool) {
 	return cell, cell != nil
 }
 
-// SelectNextClue selects the next clue in the puzzle based on the current direction
-// If direction is true, it selects the next clue, if false, it selects the previous clue
-func SelectNextClue(m *Model, direction bool) {
+func SelectNextClue(m *Model, forward bool) {
 	view := &m.state.PuzzleView
 	puz := m.state.Puzzle
 
@@ -186,7 +184,7 @@ func SelectNextClue(m *Model, direction bool) {
 
 	// Calculate the next index
 	nextIndex := currentIndex
-	if direction {
+	if forward {
 		nextIndex = (currentIndex + 1) % len(clues)
 	} else {
 		nextIndex = (currentIndex - 1 + len(clues)) % len(clues)

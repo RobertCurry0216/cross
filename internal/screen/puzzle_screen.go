@@ -50,7 +50,8 @@ const (
 type layoutType int
 
 const (
-	layoutCluesRight layoutType = iota
+	layoutPuzzleFocus layoutType = iota
+	layoutClueFocus
 )
 
 var cellNumberRunes []string
@@ -117,24 +118,7 @@ func (s *PuzzleScreen) View(state common.State) string {
 
 	layout := calculateLayout(&state)
 
-	// render boxes
-	grid := renderPuzzle(layout.puzzle, s.puzzle, clue, cell)
-	if lipgloss.Width(grid) < gridMinWidth {
-		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
-	}
-
-	// status bar
-	status := renderStatusBar(layout.status)
-
-	// combine
-	rightColumn := renderClues(layout.clues, s.puzzle, clue)
-	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
-
-	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
-	screen = lipgloss.JoinVertical(lipgloss.Center, screen, status)
-
-	// Print the styled box
-	return screen
+	return renderPuzzleView(layout, s.puzzle, clue, cell)
 }
 
 // Helpers
@@ -156,7 +140,8 @@ type puzzleViewLayout struct {
 func calculateLayout(state *common.State) puzzleViewLayout {
 	layout := puzzleViewLayout{}
 
-	layout.layout = layoutCluesRight
+	// layout.layout = layoutCluesRight
+	layout.layout = layoutClueFocus
 
 	// column widths
 	leftColMin := state.Puzzle.Width * 4
@@ -201,6 +186,27 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 // |  ___/ | | |_  /_  / |/ _ \ | | |_ | '__| |/ _` |
 // | |   | |_| |/ / / /| |  __/ | |__| | |  | | (_| |
 // |_|    \__,_/___/___|_|\___|  \_____|_|  |_|\__,_|
+
+func renderPuzzleView(layout puzzleViewLayout, puzzle *puzzle.Puzzle, clue *puzzle.Clue, cell *puzzle.Cell) string {
+	// render boxes
+	grid := renderPuzzle(layout.puzzle, puzzle, clue, cell)
+	if lipgloss.Width(grid) < gridMinWidth {
+		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
+	}
+
+	// status bar
+	status := renderStatusBar(layout.status)
+
+	// combine
+	rightColumn := renderClues(layout.clues, puzzle, clue, layout.layout == layoutClueFocus)
+	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
+
+	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
+	screen = lipgloss.JoinVertical(lipgloss.Center, screen, status)
+
+	return screen
+}
+
 func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
 	buffer := NewBuffer(puz.Width*2+1, puz.Height*2+1)
 	style := lipgloss.NewStyle().Border(titledBorder(puz.Title)).Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
@@ -363,11 +369,11 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 // | |____| | |_| |  __\__ \
 //  \_____|_|\__,_|\___|___/
 
-func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue) string {
+func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzzle.Clue, focus bool) string {
 	acrossTitle := styleTitle.Render("Across:")
-	acrossText, lnAcross := renderClueSet(box.W, puzzle.AcrossClues, selectedClue)
+	acrossText, lnAcross := renderClueSet(box.W, puzzle.AcrossClues, selectedClue, focus)
 	downTitle := styleTitle.Render("Down:")
-	downText, lnDown := renderClueSet(box.W, puzzle.DownClues, selectedClue)
+	downText, lnDown := renderClueSet(box.W, puzzle.DownClues, selectedClue, focus)
 
 	allClues := lipgloss.JoinVertical(lipgloss.Left, acrossTitle, acrossText, downTitle, downText)
 
@@ -383,7 +389,7 @@ func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzz
 	return boxedClues
 }
 
-func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) (string, int) {
+func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue, focus bool) (string, int) {
 	var out string
 	var lineNum = -1
 
@@ -393,7 +399,11 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) (stri
 		clueText = fmt.Sprintf("%s (%d)", clueText, len(clue.Cells))
 		if selectedClue == clue {
 			clueText = styleHighlightClue.Render(clueText)
-			lineNum = lipgloss.Height(out)
+			if focus {
+				focusText := renderFocusedClue(clue)
+				clueText = lipgloss.JoinVertical(lipgloss.Left, clueText, focusText)
+			}
+			lineNum = lipgloss.Height(out) + lipgloss.Height(clueText)
 		} else {
 			clueText = styleCellText.Render(clueText)
 		}
@@ -406,6 +416,11 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue) (stri
 	}
 
 	return out, lineNum
+}
+
+func renderFocusedClue(clue *puzzle.Clue) string {
+
+	return ""
 }
 
 func centerLine(str string, maxH, n int) string {
