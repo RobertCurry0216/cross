@@ -143,3 +143,69 @@ func GetSelectedCell(m *Model) (*puzzle.Cell, bool) {
 	cell := m.state.Puzzle.CellAt(m.state.PuzzleView.X, m.state.PuzzleView.Y)
 	return cell, cell != nil
 }
+
+// SelectNextClue selects the next clue in the puzzle based on the current direction
+// If direction is true, it selects the next clue, if false, it selects the previous clue
+func SelectNextClue(m *Model, direction bool) {
+	view := &m.state.PuzzleView
+	puz := m.state.Puzzle
+
+	// Get the current clue
+	cell, ok := GetSelectedCell(m)
+	if !ok {
+		return
+	}
+
+	var currentClue *puzzle.Clue
+	var clues []*puzzle.Clue
+
+	if view.IsVert {
+		currentClue = cell.ClueVert
+		clues = puz.DownClues
+	} else {
+		currentClue = cell.ClueHoriz
+		clues = puz.AcrossClues
+	}
+
+	if currentClue == nil || len(clues) == 0 {
+		return
+	}
+
+	// Find the index of the current clue
+	currentIndex := -1
+	for i, clue := range clues {
+		if clue == currentClue {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return
+	}
+
+	// Calculate the next index
+	nextIndex := currentIndex
+	if direction {
+		nextIndex = (currentIndex + 1) % len(clues)
+	} else {
+		nextIndex = (currentIndex - 1 + len(clues)) % len(clues)
+	}
+
+	// Select the first cell of the next clue
+	nextClue := clues[nextIndex]
+	if firstCell := nextClue.FirstCell(); firstCell != nil {
+		// Update the position
+		for y := 0; y < puz.Height; y++ {
+			for x := 0; x < puz.Width; x++ {
+				if puz.CellAt(x, y) == firstCell {
+					view.X = x
+					view.Y = y
+					firstCell.Selected = true
+					nextClue.Selected = true
+					return
+				}
+			}
+		}
+	}
+}
