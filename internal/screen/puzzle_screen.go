@@ -13,8 +13,6 @@ import (
 const (
 	cellNumberString     = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089"
 	boxString            = "┏┓┗┛━┃┣┫┳┻╋ .*"
-	blankCell            = ' '
-	emptyCell            = '░'
 	cellWidth        int = 3
 	gridMinWidth     int = 60
 	clueMaxWidth     int = 80
@@ -27,6 +25,7 @@ var (
 	colorError,
 	colorCorrect,
 	colorStatusBar,
+	colorFocusedBorder,
 	colorGridLine lipgloss.AdaptiveColor
 )
 
@@ -45,13 +44,6 @@ const (
 	blank
 	empty
 	emptySelected
-)
-
-type layoutType int
-
-const (
-	layoutPuzzleFocus layoutType = iota
-	layoutClueFocus
 )
 
 var cellNumberRunes []string
@@ -85,6 +77,7 @@ func init() {
 	colorStatusBar = lipgloss.AdaptiveColor{Light: "4", Dark: "12"}
 	colorHighlightBG = lipgloss.AdaptiveColor{Light: "8", Dark: "250"}
 	colorHighlightFG = lipgloss.AdaptiveColor{Light: "15", Dark: "0"}
+	colorFocusedBorder = lipgloss.AdaptiveColor{Light: "2", Dark: "10"}
 
 	// styles
 	styleBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
@@ -118,7 +111,7 @@ func (s *PuzzleScreen) View(state common.State) string {
 
 	layout := calculateLayout(&state)
 
-	return renderPuzzleView(layout, s.puzzle, clue, cell)
+	return renderPuzzleView(layout, s.puzzle, clue)
 }
 
 // Helpers
@@ -130,18 +123,15 @@ func titledBorder(title string) lipgloss.Border {
 }
 
 type puzzleViewLayout struct {
-	layout layoutType
+	layout common.LayoutType
 	puzzle common.LayoutBox
 	clues  common.LayoutBox
-	title  common.LayoutBox
 	status common.LayoutBox
 }
 
 func calculateLayout(state *common.State) puzzleViewLayout {
 	layout := puzzleViewLayout{}
-
-	// layout.layout = layoutCluesRight
-	layout.layout = layoutClueFocus
+	layout.layout = state.PuzzleView.Layout
 
 	// column widths
 	leftColMin := state.Puzzle.Width * 4
@@ -156,25 +146,12 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 
 	// heights
 	statusHeight := 1
-	titleHeight := 0
 	cluesHeight := state.Height - statusHeight
 
 	// boxes
-	layout.puzzle = common.NewLayoutBox()
-	layout.puzzle.W = leftCol
-	layout.puzzle.H = state.Height - statusHeight - titleHeight
-
-	layout.title = common.NewLayoutBox()
-	layout.title.W = leftCol
-	layout.title.H = titleHeight
-
-	layout.status = common.NewLayoutBox()
-	layout.status.W = state.Width
-	layout.status.H = statusHeight
-
-	layout.clues = common.NewLayoutBox()
-	layout.clues.W = rightCol
-	layout.clues.H = cluesHeight
+	layout.puzzle = common.LayoutBox{W: leftCol, H: state.Height - statusHeight}
+	layout.status = common.LayoutBox{W: state.Width, H: statusHeight}
+	layout.clues = common.LayoutBox{W: rightCol, H: cluesHeight}
 
 	return layout
 }
@@ -187,9 +164,9 @@ func calculateLayout(state *common.State) puzzleViewLayout {
 // | |   | |_| |/ / / /| |  __/ | |__| | |  | | (_| |
 // |_|    \__,_/___/___|_|\___|  \_____|_|  |_|\__,_|
 
-func renderPuzzleView(layout puzzleViewLayout, puzzle *puzzle.Puzzle, clue *puzzle.Clue, cell *puzzle.Cell) string {
+func renderPuzzleView(layout puzzleViewLayout, puzzle *puzzle.Puzzle, clue *puzzle.Clue) string {
 	// render boxes
-	grid := renderPuzzle(layout.puzzle, puzzle, clue, cell)
+	grid := renderPuzzle(layout.puzzle, puzzle, clue, layout.layout == common.LayoutPuzzleFocus)
 	if lipgloss.Width(grid) < gridMinWidth {
 		grid = lipgloss.PlaceHorizontal(gridMinWidth, lipgloss.Center, grid)
 	}
@@ -198,7 +175,7 @@ func renderPuzzleView(layout puzzleViewLayout, puzzle *puzzle.Puzzle, clue *puzz
 	status := renderStatusBar(layout.status)
 
 	// combine
-	rightColumn := renderClues(layout.clues, puzzle, clue, layout.layout == layoutClueFocus)
+	rightColumn := renderClues(layout.clues, puzzle, clue, layout.layout == common.LayoutClueFocus)
 	leftColumn := lipgloss.JoinVertical(lipgloss.Left, grid)
 
 	screen := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
@@ -207,29 +184,19 @@ func renderPuzzleView(layout puzzleViewLayout, puzzle *puzzle.Puzzle, clue *puzz
 	return screen
 }
 
-func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) string {
+func renderPuzzle(box common.LayoutBox, puz *puzzle.Puzzle, selectedClue *puzzle.Clue, focus bool) string {
 	buffer := NewBuffer(puz.Width*2+1, puz.Height*2+1)
 	style := lipgloss.NewStyle().Border(titledBorder(puz.Title)).Height(box.H-2).Width(box.W-2).Align(lipgloss.Center, lipgloss.Center)
 
-	insertCorners(puz, buffer)
-	insertEdges(puz, buffer)
-	insertCells(puz, buffer, selectedClue, selectedCell)
-
-	var sb strings.Builder
-
-	h, w := buffer.Size()
-	for row := range h {
-		if row > 0 {
-			sb.WriteString("\n")
-		}
-		for col := range w {
-			if cell, err := buffer.Get(row, col); err == nil {
-				sb.WriteString(cell)
-			}
-		}
+	if focus {
+		style = style.BorderForeground(colorFocusedBorder)
 	}
 
-	return style.Render(sb.String())
+	insertCorners(puz, buffer)
+	insertEdges(puz, buffer)
+	insertCells(puz, buffer, selectedClue)
+
+	return style.Render(buffer.String())
 }
 
 func insertCorners(puz *puzzle.Puzzle, buffer *Buffer) {
@@ -310,7 +277,7 @@ func insertEdges(puz *puzzle.Puzzle, buffer *Buffer) {
 	}
 }
 
-func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, selectedCell *puzzle.Cell) {
+func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue) {
 	for y := 0; y < puz.Height; y++ {
 		for x := 0; x < puz.Width; x++ {
 			cell := puz.CellAt(x, y)
@@ -321,7 +288,7 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 				}
 
 				style := lipgloss.NewStyle().Inherit(styleCellPadding)
-				isSelected := selectedCell == cell
+				isSelected := cell.IsSelected
 				isHighlighted := selectedClue == cell.ClueHoriz || selectedClue == cell.ClueVert
 
 				if isSelected {
@@ -336,13 +303,13 @@ func insertCells(puz *puzzle.Puzzle, buffer *Buffer, selectedClue *puzzle.Clue, 
 
 				if !cell.IsEmpty() && cell.ShowChecked {
 					if cell.IsCorrect() {
-						if selectedCell == cell {
+						if isSelected {
 							style = style.Background(colorCorrect)
 						} else {
 							style = style.Foreground(colorCorrect)
 						}
 					} else {
-						if selectedCell == cell {
+						if isSelected {
 							style = style.Background(colorError)
 						} else {
 							style = style.Foreground(colorError)
@@ -384,7 +351,12 @@ func renderClues(box common.LayoutBox, puzzle *puzzle.Puzzle, selectedClue *puzz
 	}
 
 	allClues = centerLine(allClues, box.H-2, lnSelected)
-	boxedClues := styleBorder.Border(titledBorder("Clues")).Height(box.H - 2).Width(box.W - 2).Render(allClues)
+
+	style := styleBorder
+	if focus {
+		style = style.BorderForeground(colorFocusedBorder)
+	}
+	boxedClues := style.Border(titledBorder("Clues")).Height(box.H - 2).Width(box.W - 2).Render(allClues)
 
 	return boxedClues
 }
@@ -419,8 +391,38 @@ func renderClueSet(W int, clues []*puzzle.Clue, selectedClue *puzzle.Clue, focus
 }
 
 func renderFocusedClue(clue *puzzle.Clue) string {
+	if clue == nil || len(clue.Cells) == 0 {
+		return ""
+	}
 
-	return ""
+	w := len(clue.Cells)*2 + 1
+	buffer := NewBuffer(w, 3)
+
+	for i, cell := range clue.Cells {
+		buffer.Set(0, i*2, boxRunes[topEdge])
+		buffer.Set(1, i*2, boxRunes[vertLine])
+		buffer.Set(2, i*2, boxRunes[bottomEdge])
+
+		buffer.Set(0, i*2+1, strings.Repeat(boxRunes[horizLine], cellWidth))
+		cellText := boxRunes[emptySelected]
+		if !cell.IsEmpty() {
+			cellText = string(*cell.Input)
+		}
+		cellText = styleCellPadding.Render(cellText)
+		if cell.IsSelected {
+			cellText = styleHighlightCell.Render(cellText)
+		}
+		buffer.Set(1, i*2+1, cellText)
+		buffer.Set(2, i*2+1, strings.Repeat(boxRunes[horizLine], cellWidth))
+	}
+
+	buffer.Set(1, w-1, boxRunes[vertLine])
+	buffer.Set(0, w-1, boxRunes[topRight])
+	buffer.Set(2, w-1, boxRunes[bottomRight])
+	buffer.Set(0, 0, boxRunes[topLeft])
+	buffer.Set(2, 0, boxRunes[bottomLeft])
+
+	return buffer.String()
 }
 
 func centerLine(str string, maxH, n int) string {

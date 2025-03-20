@@ -5,7 +5,7 @@ type Cell struct {
 	ClueHoriz   *Clue
 	Solution    byte
 	Input       *byte
-	Selected    bool
+	IsSelected  bool
 	ShowChecked bool
 	IsCircled   bool
 }

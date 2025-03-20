@@ -13,17 +13,21 @@ type State struct {
 	PuzzleView PuzzleView
 }
 
+type LayoutType int
+
+const (
+	LayoutPuzzleFocus LayoutType = iota
+	LayoutClueFocus
+)
+
 type PuzzleView struct {
 	X      int
 	Y      int
 	IsVert bool
+	Layout LayoutType
 }
 
 type LayoutBox struct {
 	W int
 	H int
-}
-
-func NewLayoutBox() LayoutBox {
-	return LayoutBox{}
 }

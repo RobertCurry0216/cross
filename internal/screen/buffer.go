@@ -2,49 +2,60 @@ package screen
 
 import (
 	"errors"
+	"strings"
 )
 
-// Buffer is a wrapper around a 2D string slice that provides safe access
 type Buffer struct {
-	data [][]string
+	data []string
+	w    int
+	h    int
 }
 
-// NewSafe2DArray creates a new Safe2DArray from a 2D string slice
 func NewBuffer(width, height int) *Buffer {
-	data := make([][]string, height)
-	for i := 0; i < len(data); i++ {
-		data[i] = make([]string, width)
-	}
+	data := make([]string, height*width)
+	return &Buffer{data: data, w: width, h: height}
+}
 
-	return &Buffer{data: data}
+func (b *Buffer) getIndex(row, col int) (int, error) {
+	idx := (row * b.w) + col
+	if idx < 0 || idx >= len(b.data) || row < 0 || row >= b.h || col < 0 || col >= b.w {
+		return -1, errors.New("index out of bounds")
+	}
+	return idx, nil
 }
 
 // Set safely sets a value at the specified row and column
-func (s *Buffer) Set(row, col int, value string) error {
-	if row < 0 || row >= len(s.data) {
-		return errors.New("row index out of bounds")
+func (b *Buffer) Set(row, col int, value string) error {
+	if idx, err := b.getIndex(row, col); err == nil {
+		b.data[idx] = value
+		return nil
+	} else {
+		return err
 	}
-	if col < 0 || col >= len(s.data[row]) {
-		return errors.New("column index out of bounds")
-	}
-	s.data[row][col] = value
-	return nil
 }
 
 // Get safely retrieves a value at the specified row and column
-func (s *Buffer) Get(row, col int) (string, error) {
-	if row < 0 || row >= len(s.data) {
-		return "", errors.New("row index out of bounds")
+func (b *Buffer) Get(row, col int) (string, error) {
+	if idx, err := b.getIndex(row, col); err == nil {
+		return b.data[idx], nil
+	} else {
+		return "", err
 	}
-	if col < 0 || col >= len(s.data[row]) {
-		return "", errors.New("column index out of bounds")
-	}
-	return s.data[row][col], nil
 }
 
-func (b *Buffer) Size() (int, int) {
-	if len(b.data) == 0 {
-		return 0, 0
+func (b *Buffer) String() string {
+	var sb strings.Builder
+
+	for row := range b.h {
+		if row > 0 {
+			sb.WriteString("\n")
+		}
+		for col := range b.w {
+			if cell, err := b.Get(row, col); err == nil {
+				sb.WriteString(cell)
+			}
+		}
 	}
-	return len(b.data), len(b.data[0])
+
+	return sb.String()
 }

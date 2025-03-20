@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/robertcurry0216/cross/common"
 	"github.com/robertcurry0216/cross/internal/puzzle"
 	puz "github.com/robertcurry0216/cross/internal/puzzle"
 )
@@ -15,16 +16,32 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Debug = msg.String()
 		switch msg.String() {
 		case "up":
-			SelectNextCell(&m, -1, 0)
+			if m.state.PuzzleView.Layout == common.LayoutPuzzleFocus {
+				SelectNextCell(&m, -1, 0)
+			} else {
+				SelectNextClue(&m, false)
+			}
 			return m, nil
 		case "down":
-			SelectNextCell(&m, 1, 0)
+			if m.state.PuzzleView.Layout == common.LayoutPuzzleFocus {
+				SelectNextCell(&m, 1, 0)
+			} else {
+				SelectNextClue(&m, true)
+			}
 			return m, nil
 		case "left":
-			SelectNextCell(&m, 0, -1)
+			if m.state.PuzzleView.Layout == common.LayoutPuzzleFocus || !m.state.PuzzleView.IsVert {
+				SelectNextCell(&m, 0, -1)
+			} else {
+				SelectNextCell(&m, -1, 0)
+			}
 			return m, nil
 		case "right":
-			SelectNextCell(&m, 0, 1)
+			if m.state.PuzzleView.Layout == common.LayoutPuzzleFocus || !m.state.PuzzleView.IsVert {
+				SelectNextCell(&m, 0, 1)
+			} else {
+				SelectNextCell(&m, 1, 0)
+			}
 			return m, nil
 		case " ":
 			m.state.PuzzleView.IsVert = !m.state.PuzzleView.IsVert
@@ -41,7 +58,7 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 				}
-				*cell.Input = ' '
+				*cell.Input = '-'
 			}
 		case "ctrl+l":
 			// check letter
@@ -83,6 +100,13 @@ func PuzzleScreenUpdate(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					*c.Input = c.Solution
 				}
 			}
+		case "tab":
+			// toggle focus
+			if m.state.PuzzleView.Layout == common.LayoutPuzzleFocus {
+				m.state.PuzzleView.Layout = common.LayoutClueFocus
+			} else {
+				m.state.PuzzleView.Layout = common.LayoutPuzzleFocus
+			}
 		default:
 			pattern := `^[a-zA-Z]$`
 			re := regexp.MustCompile(pattern)
@@ -112,23 +136,30 @@ func SelectNextCell(m *Model, yDir, xDir int) {
 	view := &m.state.PuzzleView
 	puz := m.state.Puzzle
 	x, y := view.X, view.Y
+	if cur := puz.CellAt(x, y); cur != nil {
+		cur.IsSelected = false
+	}
 
 	for {
 		x += xDir
 		y += yDir
 		if next := puz.CellAt(x, y); next == nil {
-			return
+			break
 		} else if !next.IsBlank() {
 			view.X = x
 			view.Y = y
-			next.Selected = true
 			if view.IsVert && next.ClueVert != nil {
 				next.ClueVert.Selected = true
 			} else if next.ClueHoriz != nil {
 				next.ClueHoriz.Selected = true
 			}
-			return
+			break
 		}
+	}
+
+	x, y = view.X, view.Y
+	if cur := puz.CellAt(x, y); cur != nil {
+		cur.IsSelected = true
 	}
 }
 
@@ -153,7 +184,7 @@ func SelectNextClue(m *Model, forward bool) {
 	if !ok {
 		return
 	}
-
+	cell.IsSelected = false
 	var currentClue *puzzle.Clue
 	var clues []*puzzle.Clue
 
@@ -199,7 +230,7 @@ func SelectNextClue(m *Model, forward bool) {
 				if puz.CellAt(x, y) == firstCell {
 					view.X = x
 					view.Y = y
-					firstCell.Selected = true
+					firstCell.IsSelected = true
 					nextClue.Selected = true
 					return
 				}
