@@ -12,19 +12,8 @@ import (
 	"github.com/robertcurry0216/cross/internal/screen"
 )
 
-var path string
 
-func init() {
-	const (
-		pathDefault = ""
-		usage       = "the file path to the crossword"
-	)
-
-	flag.StringVar(&path, "filepath", pathDefault, usage)
-	flag.StringVar(&path, "f", pathDefault, usage+" (short)")
-}
-
-func buildAndValidatePuzzle() (*puz.Puzzle, error) {
+func buildAndValidatePuzzle(path string) (*puz.Puzzle, error) {
 	builder, err := puz.NewBuilderFromFile(path)
 	if err != nil {
 		return &puz.Puzzle{}, err
@@ -42,9 +31,21 @@ func buildAndValidatePuzzle() (*puz.Puzzle, error) {
 }
 
 func main() {
-
 	flag.Parse()
-	p, _ := buildAndValidatePuzzle()
+	
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Error: Please provide a crossword file path")
+		fmt.Println("Usage: cross [crossword_file.puz]")
+		os.Exit(1)
+	}
+	
+	path := args[0]
+	p, err := buildAndValidatePuzzle(path)
+	if err != nil {
+		fmt.Printf("Error loading puzzle: %v\n", err)
+		os.Exit(1)
+	}
 
 	// return
 	m := model.NewModel()
