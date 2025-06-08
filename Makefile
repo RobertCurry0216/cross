@@ -1,5 +1,5 @@
 run:
-	go run ./cmd/cross -f ./crossword.puz
+	go run ./cmd/cross -- ./crossword.puz
 
 clean:
 	test -d ./bin && gtrash put ./bin
